@@ -1,18 +1,20 @@
+#![allow(clippy::unusual_byte_groupings)]
+
 use std::fmt::Display;
 
 use crate::game::Game;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CoverTicTacToe {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CoverTTT {
     board: [u16; 6],
     moves: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Size {
-    Big,
-    Medium,
-    Small,
+pub enum Size {
+    Big = 0,
+    Medium = 2,
+    Small = 4,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,14 +25,22 @@ pub struct CoverTTTMove {
 
 impl CoverTTTMove {
     pub fn new(idx: usize, size: Size) -> Self {
-        Self {
-            idx,
-            size
-        }
+        Self { idx, size }
     }
 }
 
-impl CoverTicTacToe {
+impl Display for CoverTTTMove {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let size_char = match self.size {
+            Size::Big => 'B',
+            Size::Medium => 'M',
+            Size::Small => 'S',
+        };
+        write!(f, "{}{}", size_char, self.idx)
+    }
+}
+
+impl CoverTTT {
     pub fn new() -> Self {
         Self {
             board: [0; 6],
@@ -42,14 +52,22 @@ impl CoverTicTacToe {
         // returns true if the chosen location is occupied by
         // the side to move
         self.board[(self.moves + 1) & 1] & (1 << spot) != 0
-            || self.board[(self.moves + 1) & 1 + 2] & (1 << spot) != 0
-            || self.board[(self.moves + 1) & 1 + 4] & (1 << spot) != 0
+            || (self.board[((self.moves + 1) & 1) + 2] & (1 << spot) != 0
+                && self.board[self.moves & 1] & (1 << spot) == 0)
+            || (self.board[((self.moves + 1) & 1) + 4] & (1 << spot) != 0
+                && self.board[self.moves & 1] & (1 << spot) == 0
+                && self.board[(self.moves & 1) + 2] & (1 << spot) == 0)
     }
 
     fn pos_filled(&self, i: usize) -> bool {
-        (self.board[0] | self.board[1]) & (1 << i) != 0
-            || (self.board[0 + 2] | self.board[1 + 2]) & (1 << i) != 0
-            || (self.board[0 + 4] | self.board[1 + 4]) & (1 << i) != 0
+        (self.board[0]
+            | self.board[1]
+            | self.board[2]
+            | self.board[3]
+            | self.board[4]
+            | self.board[5])
+            & (1 << i)
+            != 0
     }
 
     fn player_at(&self, i: usize) -> bool {
@@ -60,18 +78,14 @@ impl CoverTicTacToe {
         } else if self.board[1] & (1 << i) != 0 {
             // top level O
             false
-        } else if self.board[0 + 2] & (1 << i) != 0 {
+        } else if self.board[2] & (1 << i) != 0 {
             // mid level X
             true
-        } else if self.board[1 + 2] & (1 << i) != 0 {
+        } else if self.board[3] & (1 << i) != 0 {
             // mid level O
             false
-        } else if self.board[0 + 4] & (1 << i) != 0 {
-            // bottom level X
-            true
         } else {
-            // bottom level O
-            false
+            self.board[4] & (1 << i) != 0
         }
     }
 
@@ -79,7 +93,7 @@ impl CoverTicTacToe {
         assert!(self.pos_filled(i));
         if (self.board[0] | self.board[1]) & (1 << i) != 0 {
             Size::Big
-        } else if (self.board[0 + 2] | self.board[1 + 2]) != 0 {
+        } else if (self.board[2] | self.board[3]) & (1 << i) != 0 {
             Size::Medium
         } else {
             Size::Small
@@ -87,28 +101,64 @@ impl CoverTicTacToe {
     }
 
     fn char_at(&self, x: usize, y: usize) -> char {
-        use Size::{Big, Small, Medium};
+        use Size::{Big, Medium, Small};
         if self.pos_filled(x * 3 + y) {
             if self.player_at(x * 3 + y) {
                 match self.size_at(x * 3 + y) {
                     Big => 'A',
                     Medium => 'B',
-                    Small => 'C'
+                    Small => 'C',
                 }
             } else {
                 match self.size_at(x * 3 + y) {
                     Big => 'a',
                     Medium => 'b',
-                    Small => 'c'
+                    Small => 'c',
                 }
             }
         } else {
-            ' '
+            '.'
         }
+    }
+
+    fn layer_bitmask(&self, size: Size) -> u16 {
+        match size {
+            Size::Big => self.board[0] | self.board[1],
+            Size::Medium => self.board[2] | self.board[3],
+            Size::Small => self.board[4] | self.board[5],
+        }
+    }
+
+    fn legal_moves_exist(&self) -> bool {
+        let tops_used = self.board[self.moves & 1].count_ones() as usize;
+        let top_bb = self.board[0] | self.board[1];
+        if tops_used < 3 {
+            let options = !top_bb & 0b111_111_111;
+            if options != 0 {
+                return true;
+            }
+        }
+        let mids_used = self.board[(self.moves & 1) + 2].count_ones() as usize;
+        let mid_bb = self.board[2] | self.board[3];
+        if mids_used < 3 {
+            let options = !mid_bb & !top_bb & 0b111_111_111;
+            if options != 0 {
+                return true;
+            }
+        }
+        let bottoms_used = self.board[(self.moves & 1) + 4].count_ones() as usize;
+        let bottom_bb = self.board[4] | self.board[5];
+        if bottoms_used < 3 {
+            let options = !bottom_bb & !mid_bb & !top_bb & 0b111_111_111;
+            if options != 0 {
+                return true;
+            }
+        }
+        false
     }
 }
 
-impl Game for CoverTicTacToe {
+impl Game for CoverTTT {
     type Move = CoverTTTMove;
 
     fn turn(&self) -> i32 {
@@ -143,93 +193,106 @@ impl Game for CoverTicTacToe {
             }
         }
 
-        return 0;
+        0
     }
 
     fn is_terminal(&self) -> bool {
-        self.board[0] | self.board[1] == 0b111_111_111 || self.evaluate() != 0
+        (self.layer_bitmask(Size::Small) == 6
+            && self.layer_bitmask(Size::Medium) == 6
+            && self.layer_bitmask(Size::Big) == 6)
+            || self.evaluate() != 0
+            || !self.legal_moves_exist()
     }
 
     fn generate_legal_moves(&self, buffer: &mut Vec<Self::Move>) {
-        let bb = self.board[0] | self.board[1];
-        let mut bb = !bb & 0b111_111_111;
-        while bb != 0 {
-            buffer.push(CoverTTTMove::new(bb.trailing_zeros() as usize));
-            bb &= bb - 1; // clear the least significant bit set
+        let tops_used = self.board[self.moves & 1].count_ones() as usize;
+        let top_bb = self.board[0] | self.board[1];
+        if tops_used < 3 {
+            let mut options = !top_bb & 0b111_111_111;
+            while options != 0 {
+                buffer.push(CoverTTTMove::new(
+                    options.trailing_zeros() as usize,
+                    Size::Big,
+                ));
+                options &= options - 1; // clear the least significant bit set
+            }
+        }
+        let mids_used = self.board[(self.moves & 1) + 2].count_ones() as usize;
+        let mid_bb = self.board[2] | self.board[3];
+        if mids_used < 3 {
+            let mut options = !mid_bb & !top_bb & 0b111_111_111;
+            while options != 0 {
+                buffer.push(CoverTTTMove::new(
+                    options.trailing_zeros() as usize,
+                    Size::Medium,
+                ));
+                options &= options - 1; // clear the least significant bit set
+            }
+        }
+        let bottoms_used = self.board[(self.moves & 1) + 4].count_ones() as usize;
+        let bottom_bb = self.board[4] | self.board[5];
+        if bottoms_used < 3 {
+            let mut options = !bottom_bb & !mid_bb & !top_bb & 0b111_111_111;
+            while options != 0 {
+                buffer.push(CoverTTTMove::new(
+                    options.trailing_zeros() as usize,
+                    Size::Small,
+                ));
+                options &= options - 1; // clear the least significant bit set
+            }
         }
     }
 
     fn push(&mut self, m: Self::Move) {
-        self.board[self.moves & 1] |= 1 << m.0;
+        self.board[(self.moves & 1) + m.size as usize] |= 1 << m.idx;
         self.moves += 1;
     }
 
     fn pop(&mut self, m: Self::Move) {
         self.moves -= 1;
-        self.board[self.moves & 1] ^= 1 << m.0;
+        self.board[(self.moves & 1) + m.size as usize] &= !(1 << m.idx);
     }
 
     fn action_space_size(&self) -> usize {
-        9
+        9 * 3
     }
 }
 
-impl Display for TicTacToe {
+impl Display for CoverTTT {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for y in 0..3 {
-            for x in 0..3 {
-                write!(
-                    f,
-                    "{} ",
-                    self.char_at(x, y)
-                )?;
+        for x in 0..3 {
+            for y in 0..3 {
+                write!(f, "{} ", self.char_at(x, y))?;
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
-
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::game::Game;
+    use crate::perft::perft;
 
-    use super::TicTacToe;
-
-    fn perft(board: &mut TicTacToe, depth: u8) -> u64 {
-        if depth == 0 || board.is_terminal() {
-            return 1;
-        }
-
-        let mut moves = Vec::with_capacity(9);
-        board.generate_legal_moves(&mut moves);
-
-        let mut count = 0;
-        for m in moves {
-            board.push(m);
-            count += perft(board, depth - 1);
-            board.pop(m);
-        }
-
-        count
-    }
+    use super::CoverTTT;
 
     #[test]
     fn depth1() {
-        let mut board = TicTacToe::new();
-        assert_eq!(perft(&mut board, 1), 9);
+        let mut board = CoverTTT::new();
+        assert_eq!(perft(&mut board, 1), 27);
     }
 
     #[test]
     fn depth2() {
-        let mut board = TicTacToe::new();
-        assert_eq!(perft(&mut board, 2), 72);
+        let mut board = CoverTTT::new();
+        dbg!(perft(&mut board, 2));
+        assert_eq!(perft(&mut board, 2), 675);
     }
 
-    #[test]
-    fn fullperft() {
-        let mut board = TicTacToe::new();
-        assert_eq!(perft(&mut board, 10), 255168);
-    }
+    // #[test]
+    // fn depth6() {
+    //     let mut board = CoverTTT::new();
+    //     dbg!(perft(&mut board, 6));
+    //     assert_eq!(perft(&mut board, 6), 103735800);
+    // }
 }

@@ -1,6 +1,6 @@
+use std::hash::Hash;
 
-
-pub trait Game {
+pub trait Game: Clone + PartialEq + Eq + Hash {
     type Move: Copy;
 
     fn turn(&self) -> i32;

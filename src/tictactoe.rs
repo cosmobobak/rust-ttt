@@ -1,8 +1,10 @@
+#![allow(clippy::unusual_byte_groupings)]
+
 use std::fmt::Display;
 
 use crate::game::Game;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TicTacToe {
     board: [u16; 2],
     moves: usize,
@@ -48,7 +50,7 @@ impl TicTacToe {
                 '0'
             }
         } else {
-            ' '
+            '.'
         }
     }
 }
@@ -88,11 +90,11 @@ impl Game for TicTacToe {
             }
         }
 
-        return 0;
+        0
     }
 
     fn is_terminal(&self) -> bool {
-        self.board[0] | self.board[1] == 0b111_111_111 || self.evaluate() != 0
+        self.moves == 9 || self.evaluate() != 0
     }
 
     fn generate_legal_moves(&self, buffer: &mut Vec<Self::Move>) {
@@ -123,13 +125,9 @@ impl Display for TicTacToe {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for y in 0..3 {
             for x in 0..3 {
-                write!(
-                    f,
-                    "{} ",
-                    self.char_at(x, y)
-                )?;
+                write!(f, "{} ", self.char_at(x, y))?;
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
 
         Ok(())
@@ -138,27 +136,9 @@ impl Display for TicTacToe {
 
 #[cfg(test)]
 mod tests {
-    use crate::game::Game;
+    use crate::perft::perft;
 
     use super::TicTacToe;
-
-    fn perft(board: &mut TicTacToe, depth: u8) -> u64 {
-        if depth == 0 || board.is_terminal() {
-            return 1;
-        }
-
-        let mut moves = Vec::with_capacity(9);
-        board.generate_legal_moves(&mut moves);
-
-        let mut count = 0;
-        for m in moves {
-            board.push(m);
-            count += perft(board, depth - 1);
-            board.pop(m);
-        }
-
-        count
-    }
 
     #[test]
     fn depth1() {
