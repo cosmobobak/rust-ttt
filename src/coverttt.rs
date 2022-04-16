@@ -2,7 +2,7 @@
 
 use std::fmt::Display;
 
-use crate::game::Game;
+use crate::game::{Game, ToMove, Keyed};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CoverTTT {
@@ -161,7 +161,7 @@ impl CoverTTT {
 impl Game for CoverTTT {
     type Move = CoverTTTMove;
 
-    fn turn(&self) -> i32 {
+    fn turn(&self) -> i8 {
         if self.moves & 1 == 0 {
             1
         } else {
@@ -169,7 +169,15 @@ impl Game for CoverTTT {
         }
     }
 
-    fn evaluate(&self) -> i32 {
+    fn to_move(&self) -> ToMove {
+        if self.moves & 1 == 0 {
+            ToMove::Max
+        } else {
+            ToMove::Min
+        }
+    }
+
+    fn evaluate(&self) -> i8 {
         // check first diagonal
         if self.probe_spot(0) && self.probe_spot(4) && self.probe_spot(8) {
             return -self.turn();
@@ -204,7 +212,7 @@ impl Game for CoverTTT {
             || !self.legal_moves_exist()
     }
 
-    fn generate_legal_moves(&self, buffer: &mut Vec<Self::Move>) {
+    fn generate_moves(&self, buffer: &mut Vec<Self::Move>) {
         let tops_used = self.board[self.moves & 1].count_ones() as usize;
         let top_bb = self.board[0] | self.board[1];
         if tops_used < 3 {
@@ -255,6 +263,17 @@ impl Game for CoverTTT {
 
     fn action_space_size(&self) -> usize {
         9 * 3
+    }
+}
+
+impl Keyed for CoverTTT {
+    fn hashkey(&self) -> u64 {
+        self.board[0] as u64
+         | (self.board[1] as u64) << 9
+         | (self.board[2] as u64) << 18
+         | (self.board[3] as u64) << 27
+         | (self.board[4] as u64) << 36
+         | (self.board[5] as u64) << 45
     }
 }
 

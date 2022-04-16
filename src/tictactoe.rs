@@ -2,7 +2,7 @@
 
 use std::fmt::Display;
 
-use crate::game::Game;
+use crate::game::{Game, ToMove, Keyed};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TicTacToe {
@@ -16,6 +16,12 @@ pub struct TicTacToeMove(usize);
 impl TicTacToeMove {
     pub fn new(idx: usize) -> Self {
         TicTacToeMove(idx)
+    }
+}
+
+impl Display for TicTacToeMove {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -58,7 +64,7 @@ impl TicTacToe {
 impl Game for TicTacToe {
     type Move = TicTacToeMove;
 
-    fn turn(&self) -> i32 {
+    fn turn(&self) -> i8 {
         if self.moves & 1 == 0 {
             1
         } else {
@@ -66,7 +72,15 @@ impl Game for TicTacToe {
         }
     }
 
-    fn evaluate(&self) -> i32 {
+    fn to_move(&self) -> ToMove {
+        if self.moves & 1 == 0 {
+            ToMove::Max
+        } else {
+            ToMove::Min
+        }
+    }
+
+    fn evaluate(&self) -> i8 {
         // check first diagonal
         if self.probe_spot(0) && self.probe_spot(4) && self.probe_spot(8) {
             return -self.turn();
@@ -97,7 +111,7 @@ impl Game for TicTacToe {
         self.moves == 9 || self.evaluate() != 0
     }
 
-    fn generate_legal_moves(&self, buffer: &mut Vec<Self::Move>) {
+    fn generate_moves(&self, buffer: &mut Vec<Self::Move>) {
         let bb = self.board[0] | self.board[1];
         let mut bb = !bb & 0b111_111_111;
         while bb != 0 {
@@ -118,6 +132,12 @@ impl Game for TicTacToe {
 
     fn action_space_size(&self) -> usize {
         9
+    }
+}
+
+impl Keyed for TicTacToe {
+    fn hashkey(&self) -> u64 {
+        self.board[0] as u64 | (self.board[1] as u64) << 16
     }
 }
 
