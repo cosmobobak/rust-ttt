@@ -105,15 +105,15 @@ impl CoverTTT {
         if self.pos_filled(x * 3 + y) {
             if self.player_at(x * 3 + y) {
                 match self.size_at(x * 3 + y) {
-                    Big => 'A',
-                    Medium => 'B',
-                    Small => 'C',
+                    Big => 'B',
+                    Medium => 'M',
+                    Small => 'S',
                 }
             } else {
                 match self.size_at(x * 3 + y) {
-                    Big => 'a',
-                    Medium => 'b',
-                    Small => 'c',
+                    Big => 'b',
+                    Medium => 'm',
+                    Small => 's',
                 }
             }
         } else {

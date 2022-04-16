@@ -231,6 +231,16 @@ impl Ur {
     }
 }
 
+impl Display for UrMove {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            UrMove::Move(m) => write!(f, "{}-{}", m.from, m.to),
+            UrMove::Roll(r) => write!(f, "roll {}", r),
+            UrMove::Pass => write!(f, "pass"),
+        }
+    }
+}
+
 impl Game for Ur {
     type Move = UrMove;
     

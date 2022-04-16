@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::game::{Game, ToMove, Keyed};
 
 macro_rules! cfor {
@@ -43,6 +45,12 @@ impl AdversarialKnight {
 
     pub fn visited(&self, loc: isize) -> bool {
         self.visited & (1 << loc) != 0
+    }
+}
+
+impl Display for AdversarialKnight {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.knightloc)
     }
 }
 

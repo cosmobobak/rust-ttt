@@ -10,9 +10,41 @@ mod solver;
 mod rgu;
 mod adversarialknight;
 
+use game::PartiallySolvable;
 use solver::expectiminimax;
 
 use crate::{rgu::Ur, game::Game, solver::expecti_best_move, tictactoe::TicTacToe, coverttt::CoverTTT};
+
+fn play_human<G: Game + PartiallySolvable>(mut game: G) {
+    use std::io::{stdin,stdout,Write};
+    let mut userinput = String::new();
+    while !game.is_terminal() {
+        println!("{}", game);
+        if game.turn() == -1 {
+            let m = solver::best_move(game.clone());
+            println!("computer plays {}", m);
+            game.push(m);
+            continue;
+        }
+        let mut lmoves = Vec::new();
+        game.generate_moves(&mut lmoves);
+        println!("legal moves:");
+        for &m in &lmoves {
+            print!("{}, ", m);
+        }
+        println!();
+        let _ = stdout().flush();
+        stdin().read_line(&mut userinput).expect("Did not enter a correct string.");
+        let str_move = userinput.trim();
+        let user_move = *lmoves.iter().find(|m| {
+            format!("{}", m) == str_move
+        }).expect("Move not found.");
+        game.push(user_move);
+        userinput.clear();
+    }
+    println!("{}", game);
+    game.print_outcome();
+}
 
 fn main() {
     // println!("Solving Noughts and Crosses");
@@ -57,4 +89,22 @@ fn main() {
     // }
     // println!("{}", rgu);
 
+
+    // println!("CTTT opening move evaluations (sorted worst-to-best):");
+    // let mut root = CoverTTT::new();
+    // let mut moves = Vec::with_capacity(27);
+    // root.generate_legal_moves(&mut moves);
+    // let mut evals = moves
+    //     .into_iter()
+    //     .map(|m| {
+    //         root.push(m);
+    //         let value = solve(root);
+    //         root.pop(m);
+    //         (m, value)
+    //     })
+    //     .collect::<Vec<_>>();
+    // evals.sort_by(|a, b| invert(a.1).partial_cmp(&invert(b.1)).unwrap());
+    // for (m, value) in evals {
+    //     println!("move {}: {}", m, eval_to_string(value + value.signum()));
+    // }
 }
